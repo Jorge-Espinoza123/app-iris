@@ -3,6 +3,7 @@ import joblib
 import pickle
 import numpy as np
 import psycopg2
+import pandas as pd
 
 # Variables de conexión
 USER = "postgres.aedpfifnkhudsoecnimt"
@@ -45,11 +46,7 @@ if model is not None:
     if st.button("Predecir Especie"):
         # Preparar datos
         features = np.array([[sepal_length, sepal_width, petal_length, petal_width]])
-        
-        # Estandarizar
         features_scaled = scaler.transform(features)
-        
-        # Predecir
         prediction = model.predict(features_scaled)[0]
         probabilities = model.predict_proba(features_scaled)[0]
         
@@ -94,3 +91,34 @@ if model is not None:
         
         except Exception as e:
             st.error(f"Error guardando en BD: {str(e)}")
+
+# Mostrar historial de predicciones
+st.header("📊 Historial de Predicciones")
+try:
+    connection = psycopg2.connect(
+        user=USER,
+        password=PASSWORD,
+        host=HOST,
+        port=PORT,
+        dbname=DBNAME
+    )
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT created_at, longsepalo, anchosepalo, longpetalo, anchopetalo, prediction
+        FROM table_iris
+        ORDER BY created_at DESC
+        LIMIT 10;
+    """)
+    rows = cursor.fetchall()
+    colnames = [desc[0] for desc in cursor.description]
+
+    df = pd.DataFrame(rows, columns=colnames)
+    st.dataframe(df)
+
+    cursor.close()
+    connection.close()
+
+except Exception as e:
+    st.error(f"Error mostrando historial: {str(e)}")
+
