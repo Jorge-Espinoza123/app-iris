@@ -109,7 +109,7 @@ if model is not None:
         insert_prediction(sepal_length, sepal_width, petal_length, petal_width, predicted_species)
 
         # Mostrar historial
-        st.subheader("📊 Historial de predicciones")
+        st.subheader("Historial de predicciones")
         history = get_history()
         st.dataframe(history)
 
