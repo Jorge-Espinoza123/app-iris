@@ -3,6 +3,7 @@ import joblib
 import pickle
 import numpy as np
 import psycopg2
+import pandas as pd
 
 # Variables de conexión
 USER = "postgres.aedpfifnkhudsoecnimt"
@@ -14,7 +15,7 @@ DBNAME = "postgres"
 # Configuración de la página
 st.set_page_config(page_title="Predictor de Iris", page_icon="🌸")
 
-# Probar conexión (solo al inicio)
+# Función para probar conexión inicial
 try:
     connection = psycopg2.connect(
         user=USER,
@@ -76,7 +77,7 @@ if model is not None:
         st.success(f"Especie predicha: **{predicted_species}**")
         st.write(f"Confianza: **{max(probabilities):.1%}**")
 
-        # Guardar en la base de datos
+        # Guardar en la base de datos e imprimir historial
         try:
             connection = psycopg2.connect(
                 user=USER,
@@ -87,6 +88,7 @@ if model is not None:
             )
             cursor = connection.cursor()
             
+            # Insertar registro
             insert_query = """
                 INSERT INTO table_iris (longpetalo, longsepalo, anchopetalo, anchosepalo, prediction, created_at)
                 VALUES (%s, %s, %s, %s, %s, NOW());
@@ -98,17 +100,32 @@ if model is not None:
                 sepal_width,    # anchosepalo
                 predicted_species
             ))
-
             connection.commit()
+
+            # Consultar historial completo
+            cursor.execute("""
+                SELECT created_at, longsepalo, anchosepalo, longpetalo, anchopetalo, prediction
+                FROM table_iris
+                ORDER BY created_at DESC;
+            """)
+            rows = cursor.fetchall()
+            cols = [desc[0] for desc in cursor.description]
+
+            df = pd.DataFrame(rows, columns=cols)
+
             cursor.close()
             connection.close()
-            st.success("✅ Registro almacenado en la base de datos")
+
+            # Mostrar historial en tabla
+            st.subheader("Historial de predicciones")
+            st.dataframe(df)
 
         except Exception as e:
-            st.error(f"Error al insertar en la base de datos: {e}")
+            st.error(f"Error al insertar o consultar la base de datos: {e}")
 
         # Mostrar todas las probabilidades
         st.write("Probabilidades:")
         for species, prob in zip(target_names, probabilities):
             st.write(f"- {species}: {prob:.1%}")
+
 
